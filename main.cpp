@@ -15,14 +15,31 @@ burst=burstTime;
 memLocation=mem;
 } 
 };
+class TaskComparer{
+    public:
+    bool operator()(const Task& t1,const Task& t2){
+        if(t1.burst==t2.burst){
+            return stoi(t1.name.substr(1))>stoi(t2.name.substr(1)); 
+        }
+        return t1.burst>t2.burst;
+    }
+};
 class TaskScheduler{
-   priority_queue<pair<int,Task>,vector<pair<int,Task>>,greater<pair<int,Task>>> tasks;
+   priority_queue<Task,vector<Task>,TaskComparer> tasks;
 public:
 void addTask(Task t){
-tasks.push({t.burst,t});
+tasks.push(t);
 }
 Task top(){
-    return tasks.top().second;
+    return tasks.top();
+}
+Task pop(){
+    Task t=top();
+    tasks.pop();
+    return t;
+}
+bool empty(){
+    return tasks.empty();
 }
 };
 vector<Task> parseTasks(string filename){
@@ -30,7 +47,7 @@ ifstream file(filename);
 vector<Task> result;
     string line="";
     while(getline(file,line)){
-        cout<<line<<endl;
+        //cout<<line<<endl;
         string str="";
         vector<string> words;
         for(int i=0;i<line.length();i++){
@@ -38,7 +55,11 @@ vector<Task> result;
                 str+=line[i];
             }else{
                 words.push_back(str);
+                str="";
             }
+        }
+        if(str!="") {
+            words.push_back(str);
         }
         int counter=5;
         vector<int> mem;
@@ -59,6 +80,9 @@ int main(){
     for(Task task:tasks){
     ts.addTask(task);
     }
-    
+    while(!ts.empty()){
+        cout<<ts.top().name<<" "<<ts.top().burst<<endl;
+        ts.pop();
+    }
     return 0;
 }
