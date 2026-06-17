@@ -1,5 +1,12 @@
 # Memory-Hierarchy-Simulator
-I have built preemptive synchronous SRTF scheduler
+### How to run: ###
+
+```g++ main.cpp -o main ```
+
+```./main```
+
+### Approach ###
+I have built **preemptive synchronous SRTF scheduler**
 
 Tasks will be added to task scheduler at interval of 1 cycle,
 Task scheduler is implemented with minheap priority queue so automatically task with minimum burst time will be prioritised,
@@ -10,4 +17,7 @@ I have Implemented single synchonorous core so when memory is requested, It stal
 However, for efficiency, I have built a cache system which first checks L1->L2->L3->RAM for memory, if memory is found in cache,it is fetched from cache otherwise data is fetched from RAM and also stored at L1,L2,L3 cache for future,This leads to lesser time stalling compared to RAM.
 
 Memory in cache is checked using hashmap for O(1) access time , when cache gets full, First data that came to cache is removed (FIFO Eviction)
+
+ ### Output: ###
+ <img width="1504" height="1224" alt="Screenshot 2026-06-17 124948" src="https://github.com/user-attachments/assets/2255a2d3-6699-4a80-a907-6cd9059f78d9" />
 
