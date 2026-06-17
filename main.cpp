@@ -2,13 +2,14 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <queue>
+#include <deque>
 #include <map>
 #include <thread>
 #include <chrono>
+#include <queue>
 using namespace std;
 class Cache;
-int setLatency(Cache* head,int memIndex);
+int setLatency(Cache* head,int memIndex,int& ramAccess);
 class Task{
     int memfetch=0;
     int remainingTime=0;
@@ -21,13 +22,14 @@ name=taskName;
 burst=burstTime;
 memLocation=mem;
 } 
-bool fetchMemory(Cache& head){
+bool fetchMemory(Cache& head,int cycle,int& ramAccess){
     if(remainingTime>0){
             remainingTime--;
             return false;
         }
     if(memfetch<memLocation.size()){ 
-            remainingTime=setLatency(&head,memLocation[memfetch]);
+            cout<<"\nCycle "<<cycle<<" - Running: "<<name<<" Requesting: M"<<memLocation[memfetch]<<"\n";
+            remainingTime=setLatency(&head,memLocation[memfetch], ramAccess);
             memfetch++;
             remainingTime--;
             return false;
@@ -44,7 +46,7 @@ bool fetchMemory(Cache& head){
 class Cache{
     string name;
     int capacity;
-    queue<int> recentMem;
+    deque<int> recentMem;
     map<int,int> mem;
     public:
     int latency;
@@ -54,16 +56,20 @@ class Cache{
         capacity=size;
         latency=lat;
     }
-    void addMemory(int memIndex){
+    int addMemory(int memIndex){
+        int evicted=-1;
         if(mem[memIndex]>0){
-            return;
+            return -1;
         }
         if(recentMem.size()>=capacity){
+            cout<<"(M"<<recentMem.front()<<" evicted) ";
+            evicted = recentMem.front();
             mem.erase(recentMem.front());
-            recentMem.pop();
+            recentMem.pop_front();
         }
-        recentMem.push(memIndex);
+        recentMem.push_back(memIndex);
         mem[memIndex]++;
+        return evicted;
     }
     void addMemory(Task t){
        for(int i=0;i<t.memLocation.size();i++){
@@ -76,6 +82,16 @@ class Cache{
         }else{
             return false;
         }
+    }
+    void printCache() {
+        cout<<name<<": [";
+        for(int i=0;i<recentMem.size();i++) {
+            cout<<"M"<<recentMem[i];
+            if(i!=recentMem.size()-1){
+                cout<<", ";
+            }
+        }
+        cout<<"] ";
     }
    // bool checkMem
 };
@@ -137,50 +153,73 @@ vector<Task> result;
     }
     return result;
 }
-int setLatency(Cache* head,int memIndex){
+int setLatency(Cache* head,int memIndex,int& ramAccess){
     int latency=0;
-    while(head!=nullptr&&!head->check(memIndex)){
-        latency+=head->latency;
-        head->addMemory(memIndex);
-        head=head->next;
+    Cache* current=head;
+    bool hit=false;
+    while(current!=nullptr) {
+        current->printCache();
+        if(current->check(memIndex)){
+            cout<<"-> HIT ("<<current->latency<<" cycles)\n";
+            latency+=current->latency;
+            hit=true;
+            break;
+        }else{
+            cout<<">> MISS\n";
+            latency+=current->latency;
+            current=current->next;
+        }
     }
-    if(head==nullptr){
+    if(!hit){
+        cout<<"Fetching from RAM\n";
         latency+=200;
-    }else{
-        latency+=head->latency;
+        ramAccess++;
+    }
+    current=head;
+    while(current!=nullptr) {
+        int evicted=current->addMemory(memIndex);
+        current->printCache();
+        if(evicted!=-1){
+            cout<<"(M"<<evicted<<" evicted)";
+        }
+        cout<<"\n";
+        current=current->next;
     }
     return latency;
 }
 int main(){
-    cout<<"Hi Awwab(Now in kidnapper[Avanish?] house) or Aryan!"<<endl;
     TaskScheduler ts;
     Cache L1("L1",32,4);
     Cache L2("L2",128,12);
     Cache L3("L3",512,40);
     L1.next=&L2;
     L2.next=&L3;
-    vector<Task> tasks=parseTasks("input_task2.txt");
-    while(!ts.empty()){
-        cout<<ts.top().name<<" "<<ts.top().burst<<endl;
-        ts.pop();
-    }
     int clockcycle=0;
-    while(true){
-        cout<<"\rCycle: "<<clockcycle<<flush;
+    int ramAccess=0;
+    int tasksComplete=0;
+    vector<Task> tasks=parseTasks("input_task2.txt");
+    
+    while(clockcycle<tasks.size()||!ts.empty()){
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
         if(clockcycle<tasks.size()){
         ts.addTask(tasks[clockcycle]);
         }
         if(!ts.empty()){
             Task current=ts.pop(); 
-            bool isFinished=current.fetchMemory(L1);
+            bool isFinished=current.fetchMemory(L1,clockcycle,ramAccess);
             if (isFinished) {
-                cout<<"\n[Cycle "<<clockcycle<<"] Task "<<current.name<<" completed!"<<endl;
+                cout<<"\nCycle: "<<clockcycle<<" -> Task "<<current.name<<" completed"<<endl;
+                tasksComplete++;
             } else {
                 ts.addTask(current);
             }
         }
         clockcycle++;
     }
+    cout<<"\n===Final Results===\n";
+    cout<<"Total Cycles: "<<clockcycle<<"\n";
+    cout<<"Tasks Completed: "<<tasksComplete<<"\n";
+    cout<<"Scheduler:Shortest Remaining Time First(SRTF)\n";
+    cout<<"RAM Accesses: "<<ramAccess<<"\n";
     return 0;
 }
